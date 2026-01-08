@@ -1,0 +1,21 @@
+@import "tailwindcss";
+
+@theme {
+  --color-forest: #0B1812;
+  --color-mint: #A7C4BC;
+  --color-gold: #D4AF37;
+}
+
+body {
+  margin: 0;
+  background-color: #0B1812; /* Deep Dark Green */
+  color: #F2F9F7;
+  font-family: 'Plus Jakarta Sans', sans-serif;
+}
+
+/* Custom shadow for luxury cards */
+.luxury-card {
+  background: rgba(255, 255, 255, 0.03);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
