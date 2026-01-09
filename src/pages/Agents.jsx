@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { db, auth } from '../firebase';
-import { collection, query, where, onSnapshot, doc, updateDoc, deleteDoc, arrayUnion, addDoc } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, doc, updateDoc, deleteDoc, arrayUnion, addDoc, serverTimestamp } from 'firebase/firestore';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -13,19 +13,19 @@ export default function VendorHub() {
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingId, setEditingId] = useState(null);
 
-  // Form State
-  const [formPkg, setFormPkg] = useState({ name: '', location: '', price: '', img: '', details: '' });
+  const [formPkg, setFormPkg] = useState({ 
+    name: '', location: '', price: '', seasonalPrice: '', 
+    cancellationPolicy: 'Flexible', img: '', details: '', isFeatured: false 
+  });
 
   useEffect(() => {
     if (!auth.currentUser) return;
     
-    // 1. Fetch Inquiries for this vendor
     const qInquiries = query(collection(db, "bookings"), where("vendorId", "==", auth.currentUser.uid));
     const unsubInquiries = onSnapshot(qInquiries, (snapshot) => {
       setBookings(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
     });
 
-    // 2. Fetch Packages created by this vendor
     const qPackages = query(collection(db, "packages"), where("vendorId", "==", auth.currentUser.uid));
     const unsubPackages = onSnapshot(qPackages, (snapshot) => {
       setMyPackages(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
@@ -34,133 +34,177 @@ export default function VendorHub() {
     return () => { unsubInquiries(); unsubPackages(); };
   }, []);
 
+  const totalEarnings = bookings
+    .filter(b => b.status === "Confirmed")
+    .reduce((sum, b) => sum + (Number(b.packagePrice) || 0), 0);
+
   const handleSavePackage = async (e) => {
     e.preventDefault();
     try {
+      const data = { 
+        ...formPkg, 
+        price: Number(formPkg.price), 
+        seasonalPrice: Number(formPkg.seasonalPrice),
+        vendorId: auth.currentUser.uid,
+        updatedAt: serverTimestamp()
+      };
       if (editingId) {
-        // MODIFY OPTION
-        await updateDoc(doc(db, "packages", editingId), formPkg);
-        alert("Package Updated!");
+        await updateDoc(doc(db, "packages", editingId), data);
       } else {
-        // ADD OPTION
         await addDoc(collection(db, "packages"), {
-          ...formPkg,
-          vendorId: auth.currentUser.uid,
-          createdAt: new Date().toISOString()
+          ...data,
+          createdAt: serverTimestamp()
         });
-        alert("Package Published!");
       }
       resetForm();
+      alert("Listing Updated!");
     } catch (err) { alert(err.message); }
   };
 
-  const deletePackage = async (id) => {
-    if (window.confirm("Delete this listing permanently?")) {
-      await deleteDoc(doc(db, "packages", id));
-    }
-  };
-
-  const startEdit = (pkg) => {
-    setFormPkg({ name: pkg.name, location: pkg.location, price: pkg.price, img: pkg.img, details: pkg.details });
-    setEditingId(pkg.id);
-    setShowAddForm(true);
-    window.scrollTo(0, 0);
-  };
-
   const resetForm = () => {
-    setFormPkg({ name: '', location: '', price: '', img: '', details: '' });
+    setFormPkg({ name: '', location: '', price: '', seasonalPrice: '', cancellationPolicy: 'Flexible', img: '', details: '', isFeatured: false });
     setEditingId(null);
     setShowAddForm(false);
   };
 
-  const handleReply = async (bookingId) => {
-    if (!replyText.trim()) return;
-    await updateDoc(doc(db, "bookings", bookingId), {
-      status: "Replied",
-      messages: arrayUnion({ sender: "vendor", text: replyText, timestamp: new Date().toISOString() })
-    });
-    setReplyText("");
-    setActiveChatId(null);
+  const updateBookingStatus = async (id, status) => {
+    await updateDoc(doc(db, "bookings", id), { status });
   };
 
   return (
-    <div className="min-h-screen bg-[#0B1812] text-white p-8 md:p-16">
-      <div className="max-w-6xl mx-auto">
-        <div className="flex justify-between items-center mb-12">
-          <button onClick={() => navigate('/')} className="text-mint text-[10px] font-black uppercase tracking-[0.4em]">← Back to Home</button>
-          <button onClick={() => { editingId ? resetForm() : setShowAddForm(!showAddForm) }} className="bg-mint text-forest px-6 py-3 rounded-full font-black text-[10px] uppercase tracking-widest">
-            {showAddForm ? "Close Form" : "+ Add New Package"}
-          </button>
+    <div className="min-h-screen bg-[#0B1812] text-white p-6 md:p-12 font-sans">
+      <div className="max-w-7xl mx-auto">
+        
+        {/* HEADER WITH EXIT BUTTON */}
+        <div className="flex justify-between items-start mb-12">
+          <div>
+            <h1 className="text-4xl font-black italic uppercase tracking-tighter">Agent Hub</h1>
+            <p className="text-mint text-[9px] font-black uppercase tracking-[0.4em]">Proprietary Command Center</p>
+          </div>
+          <div className="flex gap-3">
+            <button onClick={() => navigate('/')} className="bg-white/5 hover:bg-white/10 border border-white/10 text-white px-6 py-3 rounded-full font-black text-[10px] uppercase transition">
+              Exit Terminal
+            </button>
+            <button onClick={() => setShowAddForm(!showAddForm)} className="bg-mint text-forest px-8 py-3 rounded-full font-black text-[10px] uppercase">
+              {showAddForm ? "Close Form" : "+ Add Package"}
+            </button>
+          </div>
         </div>
 
-        {/* ADD / MODIFY FORM */}
+        {/* STATS */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-16">
+          <div className="bg-gradient-to-br from-mint to-emerald-600 text-forest p-8 rounded-[40px] shadow-xl">
+            <p className="text-[10px] font-black uppercase opacity-60">Revenue (USD)</p>
+            <h2 className="text-5xl font-black italic mt-1">${totalEarnings.toLocaleString()}</h2>
+          </div>
+          <div className="bg-white/5 border border-white/10 p-8 rounded-[40px]">
+            <p className="text-[10px] font-black uppercase text-mint">Pending</p>
+            <h2 className="text-5xl font-black italic mt-1">{bookings.filter(b=>b.status === "Pending").length}</h2>
+          </div>
+          <div className="bg-white/5 border border-white/10 p-8 rounded-[40px]">
+            <p className="text-[10px] font-black uppercase text-gray-500">Live Assets</p>
+            <h2 className="text-5xl font-black italic mt-1">{myPackages.length}</h2>
+          </div>
+        </div>
+
+        {/* ADD FORM */}
         <AnimatePresence>
           {showAddForm && (
-            <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className="mb-20">
-              <form onSubmit={handleSavePackage} className="bg-white/5 border border-white/10 p-8 rounded-[40px] grid grid-cols-1 md:grid-cols-2 gap-4">
-                <h2 className="md:col-span-2 text-xl font-black italic uppercase text-mint mb-4">{editingId ? 'Modify Listing' : 'New Listing'}</h2>
-                <input required className="bg-black/40 border border-white/10 p-4 rounded-2xl outline-none" placeholder="Package Name" value={formPkg.name} onChange={e => setFormPkg({...formPkg, name: e.target.value})} />
-                <input required className="bg-black/40 border border-white/10 p-4 rounded-2xl outline-none" placeholder="Location" value={formPkg.location} onChange={e => setFormPkg({...formPkg, location: e.target.value})} />
-                <input required className="bg-black/40 border border-white/10 p-4 rounded-2xl outline-none" placeholder="Price ($)" value={formPkg.price} onChange={e => setFormPkg({...formPkg, price: e.target.value})} />
-                <input required className="bg-black/40 border border-white/10 p-4 rounded-2xl outline-none" placeholder="Image URL" value={formPkg.img} onChange={e => setFormPkg({...formPkg, img: e.target.value})} />
-                <textarea required className="bg-black/40 border border-white/10 p-4 rounded-2xl outline-none md:col-span-2" placeholder="Description" value={formPkg.details} onChange={e => setFormPkg({...formPkg, details: e.target.value})} />
-                <button type="submit" className="bg-white text-forest p-4 rounded-2xl font-black uppercase text-[10px]">{editingId ? 'Update Changes' : 'Publish Package'}</button>
-              </form>
-            </motion.div>
+            <motion.form onSubmit={handleSavePackage} initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }} className="bg-white/5 p-10 rounded-[50px] border border-white/10 grid md:grid-cols-2 gap-4 mb-12 shadow-2xl">
+              <input required className="bg-black/40 p-4 rounded-2xl outline-none border border-white/10" placeholder="Package Name" value={formPkg.name} onChange={e => setFormPkg({...formPkg, name: e.target.value})} />
+              <input required className="bg-black/40 p-4 rounded-2xl outline-none border border-white/10" placeholder="Location" value={formPkg.location} onChange={e => setFormPkg({...formPkg, location: e.target.value})} />
+              <input required type="number" className="bg-black/40 p-4 rounded-2xl outline-none border border-white/10" placeholder="Standard Price ($)" value={formPkg.price} onChange={e => setFormPkg({...formPkg, price: e.target.value})} />
+              <input required type="number" className="bg-black/40 p-4 rounded-2xl outline-none border border-white/10 text-mint" placeholder="Seasonal Price ($)" value={formPkg.seasonalPrice} onChange={e => setFormPkg({...formPkg, seasonalPrice: e.target.value})} />
+              <select className="bg-black/40 p-4 rounded-2xl outline-none border border-white/10" value={formPkg.cancellationPolicy} onChange={e => setFormPkg({...formPkg, cancellationPolicy: e.target.value})}>
+                <option value="Flexible">Flexible Policy</option>
+                <option value="Strict">Strict Policy</option>
+              </select>
+              <input required className="bg-black/40 p-4 rounded-2xl outline-none border border-white/10" placeholder="Image URL" value={formPkg.img} onChange={e => setFormPkg({...formPkg, img: e.target.value})} />
+              <textarea className="md:col-span-2 bg-black/40 p-4 rounded-2xl h-24 border border-white/10" placeholder="Package Details..." value={formPkg.details} onChange={e => setFormPkg({...formPkg, details: e.target.value})} />
+              <button className="md:col-span-2 bg-white text-forest py-5 rounded-2xl font-black uppercase tracking-widest hover:bg-mint transition">
+                {editingId ? 'Update Listing' : 'Deploy to Marketplace'}
+              </button>
+            </motion.form>
           )}
         </AnimatePresence>
 
-        {/* SECTION: MY LISTINGS (MODIFY/DELETE OPTION) */}
-        <section className="mb-20">
-          <h1 className="text-4xl font-black italic uppercase tracking-tighter mb-8">My Active Listings</h1>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {myPackages.map(pkg => (
-              <div key={pkg.id} className="bg-white/5 border border-white/10 p-6 rounded-[30px] group">
-                <img src={pkg.img} className="w-full h-32 object-cover rounded-2xl mb-4 grayscale group-hover:grayscale-0 transition" alt="" />
-                <h3 className="font-black uppercase italic text-lg">{pkg.name}</h3>
-                <p className="text-mint text-[10px] font-bold mb-4">${pkg.price}</p>
-                <div className="flex gap-4">
-                  <button onClick={() => startEdit(pkg)} className="text-[9px] font-black uppercase tracking-widest text-white/50 hover:text-white">Modify</button>
-                  <button onClick={() => deletePackage(pkg.id)} className="text-[9px] font-black uppercase tracking-widest text-red-500/50 hover:text-red-500">Delete</button>
-                </div>
-              </div>
-            ))}
-          </div>
-        </section>
-
-        {/* SECTION: INQUIRIES */}
-        <section>
-          <h1 className="text-4xl font-black italic uppercase tracking-tighter mb-8">Traveler Inquiries</h1>
-          <div className="grid gap-6">
-            {bookings.map((booking) => (
-              <div key={booking.id} className="bg-white/5 border border-white/10 p-8 rounded-[40px]">
-                <div className="flex justify-between items-start mb-6">
-                  <div>
-                    <span className="text-[9px] font-black uppercase px-3 py-1 rounded-full bg-mint/10 text-mint">{booking.status}</span>
-                    <h3 className="text-2xl font-black italic uppercase mt-2">{booking.packageName}</h3>
-                    <p className="text-gray-500 text-[10px] font-bold uppercase tracking-widest">From: {booking.travelerEmail}</p>
-                  </div>
-                </div>
-                {/* Chat Display... (Keep existing chat UI) */}
-                <div className="bg-black/20 rounded-2xl p-4 mb-6 max-h-40 overflow-y-auto space-y-3">
-                  {booking.messages?.map((msg, idx) => (
-                    <div key={idx} className={`flex ${msg.sender === 'vendor' ? 'justify-end' : 'justify-start'}`}>
-                      <div className={`max-w-[80%] p-3 rounded-2xl text-xs ${msg.sender === 'vendor' ? 'bg-mint text-forest font-bold' : 'bg-white/10 text-white italic'}`}>{msg.text}</div>
+        {/* DASHBOARD GRID */}
+        <div className="grid lg:grid-cols-3 gap-12">
+          <section className="lg:col-span-2">
+            <h2 className="text-xl font-black uppercase mb-8 flex items-center gap-4">
+              Incoming Orders <span className="h-[1px] flex-1 bg-white/10"></span>
+            </h2>
+            <div className="space-y-4">
+              {bookings.map(b => (
+                <div key={b.id} className="bg-white/[0.02] p-8 rounded-[40px] border border-white/5">
+                  <div className="flex justify-between items-center mb-6">
+                    <div>
+                      <h3 className="text-xl font-black italic uppercase leading-tight">{b.packageName}</h3>
+                      <p className="text-[10px] text-gray-500 font-bold uppercase mt-1 tracking-widest">{b.travelerEmail}</p>
                     </div>
-                  ))}
-                </div>
-                {activeChatId === booking.id ? (
-                  <div className="space-y-4">
-                    <textarea className="w-full bg-white/5 border border-white/10 p-4 rounded-2xl text-sm italic outline-none text-white" placeholder="Type reply..." value={replyText} onChange={(e) => setReplyText(e.target.value)} />
-                    <button onClick={() => handleReply(booking.id)} className="bg-white text-forest px-8 py-3 rounded-xl font-black text-[10px] uppercase">Send Reply</button>
+                    <span className={`text-[9px] font-black px-4 py-1 rounded-full uppercase ${b.status === 'Confirmed' ? 'bg-mint text-forest' : 'bg-white/10'}`}>
+                      {b.status}
+                    </span>
                   </div>
-                ) : (
-                  <button onClick={() => setActiveChatId(booking.id)} className="w-full border border-white/10 py-4 rounded-2xl font-black uppercase text-[10px]">Open Chat</button>
-                )}
-              </div>
-            ))}
-          </div>
-        </section>
+                  <div className="flex gap-3">
+                    {b.status === "Pending" && (
+                      <button onClick={() => updateBookingStatus(b.id, "Confirmed")} className="bg-mint text-forest px-6 py-2 rounded-xl text-[10px] font-black uppercase">Confirm</button>
+                    )}
+                    <button onClick={() => setActiveChatId(activeChatId === b.id ? null : b.id)} className="border border-white/10 px-6 py-2 rounded-xl text-[10px] font-black uppercase">
+                      {activeChatId === b.id ? "Close Transmission" : "Open Comms"}
+                    </button>
+                  </div>
+
+                  {activeChatId === b.id && (
+                    <div className="mt-8 bg-black/40 p-6 rounded-[30px] border border-white/5">
+                      <div className="h-40 overflow-y-auto mb-4 space-y-3 pr-2">
+                        {b.messages?.map((m, i) => (
+                          <div key={i} className={`flex ${m.sender === 'vendor' ? 'justify-end' : 'justify-start'}`}>
+                            <div className={`p-3 rounded-2xl text-[10px] max-w-[80%] ${m.sender === 'vendor' ? 'bg-mint text-forest font-black' : 'bg-white/10'}`}>
+                              {m.text}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                      <div className="flex gap-2">
+                        <input id={`msg-${b.id}`} className="flex-1 bg-white/5 border border-white/10 p-3 rounded-xl text-[10px]" placeholder="Type signal..." />
+                        <button onClick={() => {
+                          const input = document.getElementById(`msg-${b.id}`);
+                          if(!input.value) return;
+                          updateDoc(doc(db, "bookings", b.id), {
+                            messages: arrayUnion({ sender: 'vendor', text: input.value, timestamp: new Date().toISOString() })
+                          });
+                          input.value = "";
+                        }} className="bg-white text-forest px-6 rounded-xl text-[10px] font-black uppercase">Send</button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </section>
+
+          <section>
+            <h2 className="text-xl font-black uppercase mb-8 flex items-center gap-4">
+              Inventory <span className="h-[1px] flex-1 bg-white/10"></span>
+            </h2>
+            <div className="grid grid-cols-1 gap-4">
+              {myPackages.map(pkg => (
+                <div key={pkg.id} className="bg-white/5 p-5 rounded-[35px] border border-white/5 group">
+                  <div className="relative h-40 rounded-2xl overflow-hidden mb-4">
+                    <img src={pkg.img} className="w-full h-full object-cover grayscale group-hover:grayscale-0 transition duration-500" />
+                    <div className="absolute top-3 right-3 bg-black/80 px-3 py-1 rounded-full text-[9px] font-black text-mint">${pkg.price}</div>
+                  </div>
+                  <h4 className="font-black italic uppercase text-sm truncate">{pkg.name}</h4>
+                  <div className="flex gap-4 mt-4 pt-4 border-t border-white/5">
+                    <button onClick={() => { setFormPkg(pkg); setEditingId(pkg.id); setShowAddForm(true); }} className="text-[9px] uppercase font-black text-white/40 hover:text-white transition">Edit</button>
+                    <button onClick={() => { if(window.confirm("Delete listing?")) deleteDoc(doc(db, "packages", pkg.id)) }} className="text-[9px] uppercase font-black text-red-500/40 hover:text-red-500 transition">Delete</button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+        </div>
       </div>
     </div>
   );

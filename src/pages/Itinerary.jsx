@@ -11,7 +11,7 @@ export default function Itinerary() {
 
   useEffect(() => {
     if (!auth.currentUser) {
-      setLoading(false);
+      navigate('/login');
       return;
     }
 
@@ -23,24 +23,30 @@ export default function Itinerary() {
     const unsubscribe = onSnapshot(q, (snapshot) => {
       setSavedItems(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
       setLoading(false);
+    }, (error) => {
+      console.error("Firestore Error:", error);
+      setLoading(false);
     });
 
     return () => unsubscribe();
-  }, []);
+  }, [navigate]);
 
   const removeItem = async (id) => {
     try {
       await deleteDoc(doc(db, "itineraries", id));
     } catch (err) {
-      alert(err.message);
+      alert("Delete failed: " + err.message);
     }
   };
 
+  if (loading) return <div className="min-h-screen bg-[#0B1812] flex items-center justify-center text-mint font-black">SYNCING PLANNER...</div>;
+
   return (
-    <div className="min-h-screen bg-[#0B1812] text-white p-6 md:p-12 overflow-y-auto">
+    <div className="min-h-screen bg-[#0B1812] text-white p-6 md:p-12">
+      {/* NAVIGATION */}
       <button 
         onClick={() => navigate('/destinations')}
-        className="fixed top-8 left-8 text-white/50 hover:text-mint flex items-center gap-2 text-[10px] font-black uppercase tracking-widest transition-all z-50"
+        className="fixed top-8 left-8 text-white/50 hover:text-mint flex items-center gap-2 text-[10px] font-black uppercase tracking-widest transition-all z-50 border border-white/10 px-4 py-2 rounded-full bg-black/20 backdrop-blur-md"
       >
         <span>←</span> BACK TO EXPLORE
       </button>
@@ -53,12 +59,12 @@ export default function Itinerary() {
 
         {savedItems.length === 0 ? (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="bg-white/5 border border-white/10 p-16 rounded-[50px] text-center backdrop-blur-xl">
-            <p className="text-gray-500 text-xs italic mb-10">Your saved trips and custom routes will appear here. Start by adding experiences from our collection.</p>
+            <p className="text-gray-500 text-xs italic mb-10">No experiences saved yet. Add items from the destination menu to start planning.</p>
             <button 
               onClick={() => navigate('/destinations')}
               className="bg-white text-forest px-12 py-5 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-mint transition"
             >
-              Find Experiences
+              Browse Experiences
             </button>
           </motion.div>
         ) : (
@@ -86,12 +92,6 @@ export default function Itinerary() {
                 </motion.div>
               ))}
             </AnimatePresence>
-            
-            <div className="mt-12 p-8 border-t border-white/5 text-center">
-               <button className="bg-mint text-forest px-12 py-5 rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-2xl hover:scale-105 transition">
-                 Optimize Route with AI
-               </button>
-            </div>
           </div>
         )}
       </div>

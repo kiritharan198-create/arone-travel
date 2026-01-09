@@ -7,6 +7,8 @@ import { onAuthStateChanged, signOut } from 'firebase/auth';
 
 export default function Home() {
   const navigate = useNavigate();
+  
+  // --- STATE ---
   const [selectedPkg, setSelectedPkg] = useState(null);
   const [packages, setPackages] = useState([]);
   const [user, setUser] = useState(null);
@@ -14,16 +16,24 @@ export default function Home() {
   const [bookingLoading, setBookingLoading] = useState(false);
   const [userInquiries, setUserInquiries] = useState([]);
   const [travelerReply, setTravelerReply] = useState("");
+  const [currency, setCurrency] = useState(localStorage.getItem('currency') || 'USD');
 
-  // ONLY ADDED: Currency State
-  const [currency, setCurrency] = useState('USD');
+  // --- PERSISTENT CURRENCY TOGGLE ---
+  const toggleCurrency = () => {
+    const newCurrency = currency === 'USD' ? 'LKR' : 'USD';
+    setCurrency(newCurrency);
+    localStorage.setItem('currency', newCurrency);
+    window.dispatchEvent(new Event("storage"));
+  };
 
+  // --- FIREBASE SYNC ---
   useEffect(() => {
     const unsubAuth = onAuthStateChanged(auth, async (currentUser) => {
       setUser(currentUser);
       if (currentUser) {
         const userDoc = await getDoc(doc(db, "users", currentUser.uid));
         if (userDoc.exists()) setUserRole(userDoc.data().role);
+        
         const q = query(collection(db, "bookings"), where("travelerId", "==", currentUser.uid));
         onSnapshot(q, (snapshot) => {
           setUserInquiries(snapshot.docs.map(d => ({ id: d.id, ...d.data() })));
@@ -37,28 +47,13 @@ export default function Home() {
     const unsubData = onSnapshot(collection(db, "packages"), (snapshot) => {
       setPackages(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
     });
+
     return () => { unsubAuth(); unsubData(); };
   }, []);
 
-  const handleBooking = async (pkg) => {
-    if (!user) { navigate('/login'); return; }
-    if (!pkg.vendorId) { alert("Old package. Use a new one."); return; }
-    setBookingLoading(true);
-    try {
-      await addDoc(collection(db, "bookings"), {
-        packageId: pkg.id,
-        packageName: pkg.name,
-        travelerEmail: user.email,
-        travelerId: user.uid,
-        vendorId: pkg.vendorId, 
-        status: "Pending",
-        messages: [],
-        createdAt: serverTimestamp()
-      });
-      alert("Inquiry Sent!");
-      setSelectedPkg(null);
-    } catch (err) { alert(err.message); }
-    finally { setBookingLoading(false); }
+  // --- NAVIGATION (TOUCH LOGIC) ---
+  const handleTouchPlace = (pkg) => {
+    navigate('/itinerary', { state: { selectedPkg: pkg } });
   };
 
   const sendReplyToVendor = async (bookingId) => {
@@ -77,31 +72,29 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-[#0B1812] text-white overflow-x-hidden font-sans">
+      
       {/* NAVIGATION */}
       <nav className="flex justify-between items-center px-12 py-10 sticky top-0 z-50 bg-[#0B1812]/90 backdrop-blur-md border-b border-white/5">
         <div className="text-4xl font-black tracking-tighter cursor-pointer" onClick={() => navigate('/')}>ARONE</div>
+        
         <div className="hidden md:flex gap-14 text-[12px] font-black uppercase tracking-[0.2em]">
           <button onClick={() => navigate('/destinations')} className="hover:text-mint transition">Destinations</button>
           <button onClick={() => navigate('/compare')} className="hover:text-mint transition">Compare</button>
           <button onClick={() => navigate('/itinerary')} className="hover:text-mint transition">Planner</button>
-          
-          {/* ONLY ADDED: Currency Toggle Button */}
-          <button 
-            onClick={() => setCurrency(currency === 'USD' ? 'LKR' : 'USD')} 
-            className="text-mint border border-mint/20 px-3 py-1 rounded-md hover:bg-mint hover:text-forest transition"
-          >
-            {currency}
-          </button>
-
+          <button onClick={toggleCurrency} className="text-mint border border-mint/20 px-4 py-1 rounded-md hover:bg-mint hover:text-forest transition font-black">{currency}</button>
           {userRole === 'vendor' && <button onClick={() => navigate('/agents')} className="text-mint animate-pulse transition">Vendor Hub</button>}
         </div>
+
         <div className="flex items-center gap-6">
-          {user ? <button onClick={() => signOut(auth)} className="text-white/40 hover:text-red-500 font-black text-[9px] uppercase tracking-widest">Logout</button>
-          : <button onClick={() => navigate('/login')} className="bg-white text-forest px-10 py-4 rounded-full text-[11px] font-black uppercase tracking-widest">Sign In</button>}
+          {user ? (
+            <button onClick={() => signOut(auth)} className="text-white/40 hover:text-red-500 font-black text-[9px] uppercase tracking-widest">Logout</button>
+          ) : (
+            <button onClick={() => navigate('/login')} className="bg-white text-forest px-10 py-4 rounded-full text-[11px] font-black uppercase tracking-widest">Sign In</button>
+          )}
         </div>
       </nav>
 
-      {/* HERO */}
+      {/* HERO SECTION */}
       <section className="relative h-[85vh] px-6 mt-4">
         <div className="w-full h-full rounded-[60px] overflow-hidden relative border border-white/5">
           <img src="https://images.pexels.com/photos/1371360/pexels-photo-1371360.jpeg?auto=compress&cs=tinysrgb&w=1920" className="w-full h-full object-cover" alt="Hero" />
@@ -121,17 +114,15 @@ export default function Home() {
           <span className="text-mint font-black text-[10px] uppercase tracking-[0.3em] mb-4">Handpicked Experiences</span>
           <h2 className="text-6xl md:text-7xl font-black italic uppercase tracking-tighter text-center">Top Picks</h2>
         </div>
+
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-12">
           {packages.map((pkg) => (
-            <motion.div whileHover={{ y: -15 }} key={pkg.id} className="cursor-pointer group" onClick={() => setSelectedPkg(pkg)}>
+            <motion.div whileHover={{ y: -15 }} key={pkg.id} className="cursor-pointer group" onClick={() => handleTouchPlace(pkg)}>
               <div className="aspect-[4/5] rounded-[50px] overflow-hidden mb-8 border border-white/10 relative">
                 <img src={pkg.img} className="w-full h-full object-cover grayscale-[0.5] group-hover:grayscale-0 transition duration-700" alt={pkg.name} />
-                
-                {/* UPDATED: Price Logic */}
                 <div className="absolute top-8 right-8 bg-forest/90 text-mint px-4 py-2 rounded-full font-black text-[10px] shadow-2xl">
                   {currency === 'USD' ? `$${pkg.price}` : `LKR ${(pkg.price * 300).toLocaleString()}`}
                 </div>
-
               </div>
               <div className="text-center px-4">
                 <h3 className="text-xl font-black uppercase italic tracking-tighter leading-none mb-2">{pkg.name}</h3>
@@ -142,7 +133,7 @@ export default function Home() {
         </div>
       </main>
 
-      {/* MESSAGES */}
+      {/* CHATS SECTION */}
       {userInquiries.length > 0 && (
         <section className="px-10 py-32 bg-white/5 border-y border-white/5">
           <div className="max-w-screen-xl mx-auto">
@@ -151,7 +142,7 @@ export default function Home() {
               {userInquiries.map(inq => (
                 <div key={inq.id} className="bg-[#0B1812] border border-white/10 p-8 rounded-[40px]">
                   <h4 className="text-xl font-black uppercase italic text-mint mb-4">{inq.packageName}</h4>
-                  <div className="space-y-3 mb-6 max-h-40 overflow-y-auto">
+                  <div className="space-y-3 mb-6 max-h-40 overflow-y-auto pr-2 custom-scrollbar">
                     {inq.messages?.map((m, i) => (
                       <div key={i} className={`flex ${m.sender === 'traveler' ? 'justify-end' : 'justify-start'}`}>
                         <div className={`p-3 rounded-xl text-[10px] max-w-[80%] ${m.sender === 'traveler' ? 'bg-white/10 text-white' : 'bg-mint text-forest font-bold'}`}>
@@ -161,8 +152,8 @@ export default function Home() {
                     ))}
                   </div>
                   <div className="flex gap-2">
-                    <input className="flex-1 bg-white/5 border border-white/10 p-3 rounded-xl text-xs outline-none" placeholder="Reply to vendor..." onChange={(e) => setTravelerReply(e.target.value)} />
-                    <button onClick={() => sendReplyToVendor(inq.id)} className="bg-white text-forest px-6 rounded-xl font-black text-[10px] uppercase tracking-widest">Send</button>
+                    <input className="flex-1 bg-white/5 border border-white/10 p-4 rounded-xl text-xs outline-none" placeholder="Reply to vendor..." onChange={(e) => setTravelerReply(e.target.value)} value={travelerReply} />
+                    <button onClick={() => sendReplyToVendor(inq.id)} className="bg-white text-forest px-6 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-mint transition">Send</button>
                   </div>
                 </div>
               ))}
@@ -171,7 +162,7 @@ export default function Home() {
         </section>
       )}
 
-      {/* ISLAND CURIOSITIES */}
+      {/* ISLAND CURIOSITIES (INTERESTING FACTS) */}
       <section className="bg-[#0B1812] py-32 px-10 border-y border-white/5">
         <div className="max-w-screen-2xl mx-auto">
           <h2 className="text-4xl font-black italic uppercase mb-16 tracking-tighter">Island Curiosities</h2>
@@ -191,62 +182,45 @@ export default function Home() {
         </div>
       </section>
 
-      {/* FOOTER */}
-      <footer className="px-10 py-20 bg-[#0B1812]">
-        <div className="max-w-screen-2xl mx-auto flex flex-col md:flex-row justify-between items-start border-t border-white/5 pt-20">
-          <div className="mb-10 md:mb-0">
-            <h2 className="text-5xl font-black tracking-tighter mb-6">ARONE</h2>
-            <p className="text-gray-500 text-xs font-bold uppercase tracking-widest max-w-xs leading-loose">
-              Defined by luxury, driven by heritage. The ultimate gateway to the wonders of Sri Lanka.
+      {/* FULL FOOTER WITH COPYRIGHTS AND DETAILS */}
+      <footer className="px-10 py-32 bg-[#0B1812] border-t border-white/5 mt-20">
+        <div className="max-w-screen-2xl mx-auto grid grid-cols-1 md:grid-cols-4 gap-20">
+          <div className="col-span-1 md:col-span-2">
+            <h2 className="text-6xl font-black tracking-tighter mb-8 italic">ARONE</h2>
+            <p className="text-gray-500 text-xs font-bold uppercase tracking-[0.3em] max-w-md leading-loose italic">
+              Experience the pinnacle of luxury travel. We curate the finest heritage and modern escapes across the emerald island.
             </p>
           </div>
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-20">
-            <div>
-              <h5 className="text-mint text-[10px] font-black uppercase tracking-widest mb-6">Explore</h5>
-              <ul className="text-gray-400 text-[10px] font-bold uppercase space-y-4 tracking-widest">
-                <li className="hover:text-white cursor-pointer transition">Destinations</li>
-                <li className="hover:text-white cursor-pointer transition">Heritage</li>
-                <li className="hover:text-white cursor-pointer transition">Wildlife</li>
-              </ul>
-            </div>
-            <div>
-              <h5 className="text-mint text-[10px] font-black uppercase tracking-widest mb-6">Legal</h5>
-              <ul className="text-gray-400 text-[10px] font-bold uppercase space-y-4 tracking-widest">
-                <li className="hover:text-white cursor-pointer transition">Privacy</li>
-                <li className="hover:text-white cursor-pointer transition">Terms</li>
-              </ul>
-            </div>
+          
+          <div>
+            <h5 className="text-mint text-[11px] font-black uppercase tracking-widest mb-8 italic underline underline-offset-8">Quick Links</h5>
+            <ul className="text-gray-400 text-[10px] font-bold uppercase space-y-5 tracking-[0.2em]">
+              <li className="hover:text-white cursor-pointer transition" onClick={() => navigate('/destinations')}>Destinations</li>
+              <li className="hover:text-white cursor-pointer transition" onClick={() => navigate('/compare')}>Compare Pricing</li>
+              <li className="hover:text-white cursor-pointer transition" onClick={() => navigate('/itinerary')}>Custom Planner</li>
+              <li className="hover:text-white cursor-pointer transition" onClick={() => navigate('/agents')}>Agent Portal</li>
+            </ul>
+          </div>
+
+          <div>
+            <h5 className="text-mint text-[11px] font-black uppercase tracking-widest mb-8 italic underline underline-offset-8">Inquiries</h5>
+            <ul className="text-gray-400 text-[10px] font-bold uppercase space-y-5 tracking-[0.2em]">
+              <li className="hover:text-white cursor-pointer transition">contact@arone.lk</li>
+              <li className="hover:text-white cursor-pointer transition">+94 77 123 4567</li>
+              <li className="hover:text-white cursor-pointer transition">Colombo, Sri Lanka</li>
+            </ul>
           </div>
         </div>
-        <div className="max-w-screen-2xl mx-auto mt-20 pt-10 border-t border-white/5 flex flex-col md:flex-row justify-between text-[9px] font-black text-gray-600 uppercase tracking-[0.4em]">
+
+        <div className="max-w-screen-2xl mx-auto mt-32 pt-10 border-t border-white/5 flex flex-col md:flex-row justify-between text-[10px] font-black text-gray-600 uppercase tracking-[0.5em]">
           <p>© 2026 ARONE TRAVELS SRI LANKA. ALL RIGHTS RESERVED.</p>
-          <p>DESIGNED FOR THE EXTRAORDINARY.</p>
+          <div className="flex gap-12 mt-6 md:mt-0">
+            <span className="cursor-pointer hover:text-white transition">Privacy Policy</span>
+            <span className="cursor-pointer hover:text-white transition">Terms of Service</span>
+            <span className="text-mint italic">Designed for Excellence</span>
+          </div>
         </div>
       </footer>
-
-      {/* POPUP MODAL */}
-      <AnimatePresence>
-        {selectedPkg && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center p-6">
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setSelectedPkg(null)} className="absolute inset-0 bg-black/90 backdrop-blur-xl" />
-            <motion.div initial={{ scale: 0.9, opacity: 0, y: 50 }} animate={{ scale: 1, opacity: 1, y: 0 }} exit={{ scale: 0.9, opacity: 0, y: 50 }} 
-              className="bg-[#0B1812] border border-white/10 w-full max-w-lg rounded-[40px] overflow-hidden relative z-10 p-8 shadow-2xl"
-            >
-              <h3 className="text-3xl font-black italic uppercase tracking-tighter mb-4 leading-none">{selectedPkg.name}</h3>
-              
-              {/* UPDATED: Modal Price Display */}
-              <p className="text-mint font-black text-lg mb-2">
-                {currency === 'USD' ? `$${selectedPkg.price}` : `LKR ${(selectedPkg.price * 300).toLocaleString()}`}
-              </p>
-
-              <p className="text-gray-400 text-sm italic mb-8 leading-relaxed">{selectedPkg.details}</p>
-              <button disabled={bookingLoading} onClick={() => handleBooking(selectedPkg)} className="w-full bg-white text-forest p-5 rounded-2xl font-black text-[11px] uppercase tracking-widest hover:bg-mint transition">
-                {bookingLoading ? "Processing..." : "Confirm Inquiry"}
-              </button>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
     </div>
   );
 }
