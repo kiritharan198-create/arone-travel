@@ -15,6 +15,9 @@ export default function Home() {
   const [userInquiries, setUserInquiries] = useState([]);
   const [travelerReply, setTravelerReply] = useState("");
 
+  // ONLY ADDED: Currency State
+  const [currency, setCurrency] = useState('USD');
+
   useEffect(() => {
     const unsubAuth = onAuthStateChanged(auth, async (currentUser) => {
       setUser(currentUser);
@@ -81,6 +84,15 @@ export default function Home() {
           <button onClick={() => navigate('/destinations')} className="hover:text-mint transition">Destinations</button>
           <button onClick={() => navigate('/compare')} className="hover:text-mint transition">Compare</button>
           <button onClick={() => navigate('/itinerary')} className="hover:text-mint transition">Planner</button>
+          
+          {/* ONLY ADDED: Currency Toggle Button */}
+          <button 
+            onClick={() => setCurrency(currency === 'USD' ? 'LKR' : 'USD')} 
+            className="text-mint border border-mint/20 px-3 py-1 rounded-md hover:bg-mint hover:text-forest transition"
+          >
+            {currency}
+          </button>
+
           {userRole === 'vendor' && <button onClick={() => navigate('/agents')} className="text-mint animate-pulse transition">Vendor Hub</button>}
         </div>
         <div className="flex items-center gap-6">
@@ -114,7 +126,12 @@ export default function Home() {
             <motion.div whileHover={{ y: -15 }} key={pkg.id} className="cursor-pointer group" onClick={() => setSelectedPkg(pkg)}>
               <div className="aspect-[4/5] rounded-[50px] overflow-hidden mb-8 border border-white/10 relative">
                 <img src={pkg.img} className="w-full h-full object-cover grayscale-[0.5] group-hover:grayscale-0 transition duration-700" alt={pkg.name} />
-                <div className="absolute top-8 right-8 bg-forest/90 text-mint px-4 py-2 rounded-full font-black text-[10px] shadow-2xl">${pkg.price}</div>
+                
+                {/* UPDATED: Price Logic */}
+                <div className="absolute top-8 right-8 bg-forest/90 text-mint px-4 py-2 rounded-full font-black text-[10px] shadow-2xl">
+                  {currency === 'USD' ? `$${pkg.price}` : `LKR ${(pkg.price * 300).toLocaleString()}`}
+                </div>
+
               </div>
               <div className="text-center px-4">
                 <h3 className="text-xl font-black uppercase italic tracking-tighter leading-none mb-2">{pkg.name}</h3>
@@ -154,7 +171,7 @@ export default function Home() {
         </section>
       )}
 
-      {/* ISLAND CURIOSITIES Restored */}
+      {/* ISLAND CURIOSITIES */}
       <section className="bg-[#0B1812] py-32 px-10 border-y border-white/5">
         <div className="max-w-screen-2xl mx-auto">
           <h2 className="text-4xl font-black italic uppercase mb-16 tracking-tighter">Island Curiosities</h2>
@@ -174,7 +191,7 @@ export default function Home() {
         </div>
       </section>
 
-      {/* FOOTER Restored */}
+      {/* FOOTER */}
       <footer className="px-10 py-20 bg-[#0B1812]">
         <div className="max-w-screen-2xl mx-auto flex flex-col md:flex-row justify-between items-start border-t border-white/5 pt-20">
           <div className="mb-10 md:mb-0">
@@ -216,6 +233,12 @@ export default function Home() {
               className="bg-[#0B1812] border border-white/10 w-full max-w-lg rounded-[40px] overflow-hidden relative z-10 p-8 shadow-2xl"
             >
               <h3 className="text-3xl font-black italic uppercase tracking-tighter mb-4 leading-none">{selectedPkg.name}</h3>
+              
+              {/* UPDATED: Modal Price Display */}
+              <p className="text-mint font-black text-lg mb-2">
+                {currency === 'USD' ? `$${selectedPkg.price}` : `LKR ${(selectedPkg.price * 300).toLocaleString()}`}
+              </p>
+
               <p className="text-gray-400 text-sm italic mb-8 leading-relaxed">{selectedPkg.details}</p>
               <button disabled={bookingLoading} onClick={() => handleBooking(selectedPkg)} className="w-full bg-white text-forest p-5 rounded-2xl font-black text-[11px] uppercase tracking-widest hover:bg-mint transition">
                 {bookingLoading ? "Processing..." : "Confirm Inquiry"}

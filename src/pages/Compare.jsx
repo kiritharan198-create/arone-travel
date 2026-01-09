@@ -2,17 +2,26 @@ import React, { useState, useEffect } from 'react';
 import { db } from '../firebase';
 import { collection, onSnapshot } from 'firebase/firestore';
 import { useNavigate } from 'react-router-dom';
-import { motion } from 'framer-motion';
 
 export default function Compare() {
   const navigate = useNavigate();
   const [packages, setPackages] = useState([]);
+  const [currency, setCurrency] = useState(localStorage.getItem('currency') || 'USD');
 
   useEffect(() => {
+    // Listen for currency toggle from Home
+    const handleStorageChange = () => {
+      setCurrency(localStorage.getItem('currency') || 'USD');
+    };
+    window.addEventListener('storage', handleStorageChange);
+    
     const unsub = onSnapshot(collection(db, "packages"), (snap) => {
       setPackages(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
     });
-    return () => unsub();
+    return () => {
+      unsub();
+      window.removeEventListener('storage', handleStorageChange);
+    };
   }, []);
 
   return (
@@ -27,7 +36,7 @@ export default function Compare() {
               <th className="p-8">Experience</th>
               <th className="p-8">Type</th>
               <th className="p-8">Location</th>
-              <th className="p-8">Price</th>
+              <th className="p-8">Price ({currency})</th>
             </tr>
           </thead>
           <tbody>
@@ -36,7 +45,9 @@ export default function Compare() {
                 <td className="p-8 font-black italic uppercase text-sm">{pkg.name}</td>
                 <td className="p-8 text-[10px] font-bold text-mint uppercase">{pkg.type}</td>
                 <td className="p-8 text-gray-400 text-xs">{pkg.location}</td>
-                <td className="p-8 font-black text-white">${pkg.price}</td>
+                <td className="p-8 font-black text-white">
+                  {currency === 'USD' ? `$${pkg.price}` : `LKR ${(pkg.price * 300).toLocaleString()}`}
+                </td>
               </tr>
             ))}
           </tbody>
