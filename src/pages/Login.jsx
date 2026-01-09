@@ -1,97 +1,118 @@
 import React, { useState } from 'react';
+import { auth, db } from '../firebase';
+import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from 'firebase/auth';
+import { doc, setDoc, getDoc } from 'firebase/firestore';
 import { useNavigate } from 'react-router-dom';
+import { motion } from 'framer-motion';
 
 export default function Login() {
+  const [isLogin, setIsLogin] = useState(true);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [role, setRole] = useState('traveler');
   const navigate = useNavigate();
-  const [role, setRole] = useState('traveler'); 
 
-  const handleLogin = (e) => {
+  const handleAuth = async (e) => {
     e.preventDefault();
-    if (role === 'vendor') {
-      navigate('/agents');
-    } else {
-      navigate('/');
+    try {
+      if (isLogin) {
+        const userCredential = await signInWithEmailAndPassword(auth, email, password);
+        const userDoc = await getDoc(doc(db, "users", userCredential.user.uid));
+        if (userDoc.exists()) {
+          const userData = userDoc.data();
+          if (userData.role === 'vendor') navigate('/agents');
+          else navigate('/');
+        }
+      } else {
+        const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+        await setDoc(doc(db, "users", userCredential.user.uid), {
+          email: email,
+          role: role,
+          createdAt: new Date()
+        });
+        alert("Account Created Successfully!");
+        if (role === 'vendor') navigate('/agents');
+        else navigate('/');
+      }
+    } catch (error) {
+      alert(error.message);
     }
   };
 
   return (
-    <div className="min-h-screen bg-[#0B1812] flex items-center justify-center p-6 relative">
+    // Added 'overflow-y-auto' and 'py-12' for better scrolling on mobile
+    <div className="min-h-screen bg-[#0B1812] flex items-center justify-center p-6 overflow-y-auto">
       
-      {/* --- BACK NAVIGATION --- */}
+      {/* 1. BACK TO HOME BUTTON */}
       <button 
         onClick={() => navigate('/')}
-        className="absolute top-12 left-12 text-mint font-black text-[10px] uppercase tracking-[0.3em] border-b border-mint/30 pb-1 hover:border-mint transition-all flex items-center gap-2"
+        className="fixed top-8 left-8 text-white/50 hover:text-mint flex items-center gap-2 text-[10px] font-black uppercase tracking-widest transition-all z-50"
       >
-        <span className="text-lg">←</span> Back to Home
+        <span>←</span> BACK TO EXPLORING
       </button>
 
-      {/* --- CLOSE ICON --- */}
-      <button 
-        onClick={() => navigate('/')}
-        className="absolute top-12 right-12 w-12 h-12 rounded-full border border-white/10 flex items-center justify-center text-white hover:bg-white/5 transition"
+      <motion.div 
+        initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
+        className="bg-white/5 border border-white/10 p-8 md:p-12 rounded-[40px] w-full max-w-md backdrop-blur-xl my-auto"
       >
-        ✕
-      </button>
-
-      <div className="max-w-md w-full luxury-card p-12 rounded-[60px] border border-white/10 shadow-2xl relative overflow-hidden">
-        {/* Subtle Background Glow */}
-        <div className="absolute -top-24 -right-24 w-48 h-48 bg-mint/5 blur-[80px] rounded-full" />
-        
-        <div className="text-center mb-10 relative">
-          <h1 className="text-4xl font-black text-white tracking-tighter uppercase italic leading-none">Access <br/> Portal</h1>
-          <p className="text-[10px] text-mint font-bold uppercase tracking-[0.3em] mt-4 opacity-70">Project 10: Tourism Management</p>
+        <div className="text-center mb-10">
+          <h2 className="text-4xl font-black text-white italic tracking-tighter mb-2 uppercase leading-none">
+            {isLogin ? 'Welcome Back' : 'Join Arone'}
+          </h2>
+          <p className="text-gray-500 text-[9px] font-bold uppercase tracking-[0.3em]">
+            {isLogin ? 'Gateway to Sri Lanka' : 'Start your travel journey'}
+          </p>
         </div>
 
-        {/* ROLE SWITCHER */}
-        <div className="flex bg-white/5 p-1 rounded-2xl mb-8 border border-white/5 relative">
-          <button 
-            onClick={() => setRole('traveler')}
-            className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase transition-all duration-500 ${role === 'traveler' ? 'bg-mint text-forest shadow-lg' : 'text-gray-500 hover:text-white'}`}
-          >
-            Traveler
-          </button>
-          <button 
-            onClick={() => setRole('vendor')}
-            className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase transition-all duration-500 ${role === 'vendor' ? 'bg-mint text-forest shadow-lg' : 'text-gray-500 hover:text-white'}`}
-          >
-            Vendor
-          </button>
-        </div>
-
-        <form onSubmit={handleLogin} className="space-y-6 relative">
-          <div className="group">
-            <label className="text-[9px] font-black text-gray-500 uppercase tracking-widest ml-4 group-focus-within:text-mint transition">Email Identifier</label>
+        <form onSubmit={handleAuth} className="space-y-5">
+          <div>
+            <label className="text-[8px] font-black text-gray-500 uppercase tracking-widest ml-2 mb-2 block">Identity</label>
             <input 
-              type="email" 
-              required 
-              className="w-full bg-white/[0.03] border border-white/10 rounded-2xl px-6 py-4 mt-2 text-white focus:outline-none focus:border-mint focus:bg-white/[0.07] transition-all" 
-              placeholder="e.g. traveler@arone.com" 
-            />
-          </div>
-          <div className="group">
-            <label className="text-[9px] font-black text-gray-500 uppercase tracking-widest ml-4 group-focus-within:text-mint transition">Secure Password</label>
-            <input 
-              type="password" 
-              required 
-              className="w-full bg-white/[0.03] border border-white/10 rounded-2xl px-6 py-4 mt-2 text-white focus:outline-none focus:border-mint focus:bg-white/[0.07] transition-all" 
-              placeholder="••••••••" 
+              type="email" placeholder="EMAIL@EXAMPLE.COM" 
+              className="w-full bg-white/5 border border-white/10 rounded-2xl p-5 text-white text-xs font-bold outline-none focus:border-mint transition-all"
+              onChange={(e) => setEmail(e.target.value)} required
             />
           </div>
           
-          <button 
-            type="submit" 
-            className="w-full bg-white text-forest py-5 rounded-2xl font-black text-xs uppercase tracking-[0.2em] shadow-xl hover:bg-mint hover:scale-[1.02] transition-all active:scale-95 mt-4"
-          >
-            Authenticate {role}
+          <div>
+            <label className="text-[8px] font-black text-gray-500 uppercase tracking-widest ml-2 mb-2 block">Security</label>
+            <input 
+              type="password" placeholder="••••••••" 
+              className="w-full bg-white/5 border border-white/10 rounded-2xl p-5 text-white text-xs font-bold outline-none focus:border-mint transition-all"
+              onChange={(e) => setPassword(e.target.value)} required
+            />
+          </div>
+
+          {!isLogin && (
+            <div className="pt-2">
+              <label className="text-[8px] font-black text-gray-500 uppercase tracking-widest ml-2 mb-4 block">Select Account Type</label>
+              <div className="flex gap-3">
+                <button 
+                  type="button" onClick={() => setRole('traveler')}
+                  className={`flex-1 p-4 rounded-xl text-[9px] font-black uppercase tracking-widest border transition-all ${role === 'traveler' ? 'bg-mint text-forest border-mint shadow-[0_0_20px_rgba(153,255,204,0.2)]' : 'text-white border-white/10 hover:border-white/30'}`}
+                >Tourist</button>
+                <button 
+                  type="button" onClick={() => setRole('vendor')}
+                  className={`flex-1 p-4 rounded-xl text-[9px] font-black uppercase tracking-widest border transition-all ${role === 'vendor' ? 'bg-mint text-forest border-mint shadow-[0_0_20px_rgba(153,255,204,0.2)]' : 'text-white border-white/10 hover:border-white/30'}`}
+                >Vendor</button>
+              </div>
+            </div>
+          )}
+
+          <button className="w-full bg-white text-forest p-5 rounded-2xl font-black text-[11px] uppercase tracking-[0.2em] shadow-2xl hover:bg-mint transition-all active:scale-95 mt-4">
+            {isLogin ? 'Authorize Login' : 'Register Profile'}
           </button>
         </form>
 
         <div className="mt-10 pt-8 border-t border-white/5 text-center">
-          <p className="text-[10px] text-gray-600 font-bold uppercase tracking-widest">
-            New to Arone? <span className="text-mint cursor-pointer hover:underline underline-offset-4">Create Account</span>
-          </p>
+          <button 
+            onClick={() => setIsLogin(!isLogin)}
+            className="text-gray-500 text-[9px] font-black uppercase tracking-widest hover:text-mint transition-all"
+          >
+            {isLogin ? "New to the platform? Create Account" : "Return to sign in"}
+          </button>
         </div>
-      </div>
+      </motion.div>
     </div>
   );
 }
