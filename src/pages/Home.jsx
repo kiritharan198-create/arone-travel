@@ -17,7 +17,6 @@ export default function Home() {
   const [travelerReply, setTravelerReply] = useState("");
   const [currency, setCurrency] = useState(localStorage.getItem('currency') || 'USD');
 
-  // NEW: Search States
   const [searchParams, setSearchParams] = useState({
     destination: '',
     budget: ''
@@ -54,7 +53,6 @@ export default function Home() {
     return () => { unsubAuth(); unsubData(); };
   }, []);
 
-  // NEW: Search Execution
   const handleSearchTrigger = () => {
     navigate('/destinations', { state: { searchParams } });
   };
@@ -73,18 +71,19 @@ export default function Home() {
           timestamp: new Date().toISOString()
         })
       });
-      setTravelerReply("");
+      setTravelerReply(""); // FIX: Clear input after sending
     } catch (err) { console.error(err); }
   };
 
   return (
     <div className="min-h-screen bg-[#0B1812] text-white overflow-x-hidden font-sans">
       
-      {/* NAVIGATION */}
+      {/* NAVIGATION - ORIGINAL LAYOUT RESTORED */}
       <nav className="flex justify-between items-center px-8 md:px-12 py-8 sticky top-0 z-[100] bg-[#0B1812]/80 backdrop-blur-xl border-b border-white/5">
         <div className="text-3xl font-black tracking-tighter cursor-pointer" onClick={() => navigate('/')}>ARONE</div>
         
-        <div className="hidden lg:flex gap-10 text-[10px] font-black uppercase tracking-[0.2em]">
+        {/* FIX: Removed 'hidden' so buttons show in Desktop Mode on phone. Added flex-wrap for safety. */}
+        <div className="flex gap-10 text-[10px] font-black uppercase tracking-[0.2em] flex-wrap justify-center">
           <button onClick={() => navigate('/destinations')} className="hover:text-mint transition">Destinations</button>
           <button onClick={() => navigate('/compare')} className="hover:text-mint transition">Compare</button>
           <button onClick={() => navigate('/itinerary')} className="hover:text-mint transition">Planner</button>
@@ -123,20 +122,18 @@ export default function Home() {
               An all-in-one platform to compare tour packages, build itineraries, and book unforgettable experiences with local experts.
             </p>
 
-            {/* CALL TO ACTION BUTTONS */}
             <div className="flex flex-wrap justify-center gap-4 mb-16">
               <button onClick={() => navigate('/itinerary')} className="bg-mint text-forest px-12 py-5 rounded-2xl font-black text-[11px] uppercase tracking-widest shadow-2xl hover:scale-105 transition duration-300">Plan My Trip</button>
               <button onClick={() => navigate('/agents')} className="bg-white/10 backdrop-blur-md border border-white/20 text-white px-12 py-5 rounded-2xl font-black text-[11px] uppercase tracking-widest hover:bg-white/20 transition duration-300">Become a Vendor</button>
             </div>
 
-            {/* FUNCTIONAL SEARCH BAR */}
             <div className="bg-white/5 backdrop-blur-2xl border border-white/10 p-2 md:p-3 rounded-[30px] md:rounded-full flex flex-wrap lg:flex-nowrap items-center gap-2 max-w-5xl mx-auto mb-16 shadow-3xl">
               <div className="flex-1 min-w-[150px] px-6 py-3 text-left border-r border-white/5">
                 <label className="block text-[8px] font-black uppercase text-mint tracking-widest mb-1">Destination</label>
                 <input 
                   type="text" 
                   placeholder="Where to?" 
-                  className="bg-transparent border-none outline-none text-[12px] font-bold w-full placeholder:text-white/20"
+                  className="bg-transparent border-none outline-none text-[12px] font-bold w-full placeholder:text-white/20 text-white"
                   onChange={(e) => setSearchParams({...searchParams, destination: e.target.value})}
                 />
               </div>
@@ -145,7 +142,7 @@ export default function Home() {
                 <input 
                   type="number" 
                   placeholder="Max Price" 
-                  className="bg-transparent border-none outline-none text-[12px] font-bold w-full placeholder:text-white/20"
+                  className="bg-transparent border-none outline-none text-[12px] font-bold w-full placeholder:text-white/20 text-white"
                   onChange={(e) => setSearchParams({...searchParams, budget: e.target.value})}
                 />
               </div>
@@ -159,7 +156,6 @@ export default function Home() {
         </div>
       </section>
 
-      {/* REST OF PAGE (TOP PICKS, CHATS, FOOTER) */}
       <main className="px-10 py-32 max-w-screen-2xl mx-auto">
         <div className="flex flex-col items-center mb-20">
           <span className="text-mint font-black text-[10px] uppercase tracking-[0.3em] mb-4">Handpicked Experiences</span>
@@ -201,7 +197,7 @@ export default function Home() {
                     ))}
                   </div>
                   <div className="flex gap-2">
-                    <input className="flex-1 bg-white/5 border border-white/10 p-4 rounded-xl text-xs outline-none" placeholder="Reply..." onChange={(e) => setTravelerReply(e.target.value)} value={travelerReply} />
+                    <input className="flex-1 bg-white/5 border border-white/10 p-4 rounded-xl text-xs outline-none text-white" placeholder="Reply..." onChange={(e) => setTravelerReply(e.target.value)} value={travelerReply} />
                     <button onClick={() => sendReplyToVendor(inq.id)} className="bg-white text-forest px-6 rounded-xl font-black text-[10px] uppercase transition hover:bg-mint">Send</button>
                   </div>
                 </div>
