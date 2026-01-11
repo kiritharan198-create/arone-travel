@@ -25,142 +25,181 @@ export default function Itinerary() {
     const unsubscribe = onSnapshot(q, (snapshot) => {
       setSavedItems(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
       setLoading(false);
-    }, (error) => {
-      console.error("Firestore Error:", error);
-      setLoading(false);
     });
 
     return () => unsubscribe();
   }, [navigate]);
 
   const removeItem = async (id) => {
-    try {
-      await deleteDoc(doc(db, "itineraries", id));
-    } catch (err) {
-      alert("Delete failed: " + err.message);
-    }
+    await deleteDoc(doc(db, "itineraries", id));
   };
 
-  // Calculate Total Price
   const totalPrice = savedItems.reduce((acc, item) => acc + (Number(item.price) || 0), 0);
 
   const handleFinalizePlan = async () => {
     setIsProcessing(true);
-    // Simulate Intelligent Scheduling Logic
     setTimeout(async () => {
-      try {
-        await addDoc(collection(db, "bookings"), {
-          travelerId: auth.currentUser.uid,
-          packageName: `${savedItems.length} Experience Custom Bundle`,
-          totalPrice: totalPrice,
-          status: "pending",
-          items: savedItems,
-          createdAt: serverTimestamp(),
-          messages: [{
-            sender: "system",
-            text: "Welcome! A vendor representative will review your custom itinerary shortly.",
-            timestamp: new Date().toISOString()
-          }]
-        });
-        alert("Plan Finalized! Our agents will contact you via the Home Dashboard chat.");
-        navigate('/');
-      } catch (err) {
-        console.error(err);
-      } finally {
-        setIsProcessing(false);
-      }
+      await addDoc(collection(db, "bookings"), {
+        travelerId: auth.currentUser.uid,
+        packageName: `${savedItems.length} Experience Custom Bundle`,
+        totalPrice,
+        status: "pending",
+        items: savedItems,
+        createdAt: serverTimestamp(),
+        messages: [{
+          sender: "system",
+          text: "Your itinerary has been submitted for vendor review.",
+          timestamp: new Date().toISOString()
+        }]
+      });
+      navigate('/');
+      setIsProcessing(false);
     }, 2000);
   };
 
-  if (loading) return (
-    <div className="min-h-screen bg-[#0B1812] flex flex-col items-center justify-center gap-4">
-      <div className="w-12 h-12 border-4 border-mint border-t-transparent rounded-full animate-spin"></div>
-      <div className="text-mint font-black tracking-widest text-[10px] uppercase">Syncing Planner...</div>
-    </div>
-  );
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-[#0B1812] flex items-center justify-center">
+        <div className="text-mint font-black uppercase tracking-widest text-[10px]">
+          Loading Planner...
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[#0B1812] text-white p-6 md:p-12 font-sans">
-      {/* NAVIGATION */}
-      <button 
+
+      {/* BACK */}
+      <button
         onClick={() => navigate('/destinations')}
-        className="fixed top-8 left-8 text-white/50 hover:text-mint flex items-center gap-2 text-[10px] font-black uppercase tracking-widest transition-all z-50 border border-white/10 px-6 py-3 rounded-full bg-black/40 backdrop-blur-xl"
+        className="fixed top-8 left-8 z-50 bg-black/40 border border-white/10 px-6 py-3 rounded-full text-[10px] font-black uppercase tracking-widest hover:text-mint transition"
       >
-        <span>←</span> BACK TO EXPLORE
+        ← Back
       </button>
 
       <div className="max-w-6xl mx-auto mt-20">
-        <div className="flex flex-col md:flex-row justify-between items-end mb-16 gap-8">
+
+        {/* HEADER */}
+        <div className="flex flex-col md:flex-row justify-between items-start gap-10 mb-16">
           <div>
-            <span className="text-mint font-bold text-[10px] uppercase tracking-[0.5em] mb-4 block italic">Arone Intelligent Planner</span>
-            <h2 className="text-6xl md:text-7xl font-black italic uppercase tracking-tighter leading-tight">Your Personal <br/> Itinerary</h2>
+            <span className="text-mint text-[10px] font-black uppercase tracking-[0.5em]">
+              Intelligent Trip Planner
+            </span>
+            <h2 className="text-6xl md:text-7xl font-black italic uppercase tracking-tighter mt-4">
+              Your Itinerary
+            </h2>
+
+            {/* STATUS BADGE */}
+            <div className="mt-6 inline-flex items-center gap-3 bg-white/5 border border-white/10 px-6 py-3 rounded-full">
+              <span className="w-2 h-2 bg-mint rounded-full animate-pulse"></span>
+              <span className="text-[9px] font-black uppercase tracking-widest text-mint">
+                Draft Plan
+              </span>
+            </div>
           </div>
-          
+
+          {/* SUMMARY */}
           {savedItems.length > 0 && (
-            <div className="bg-white/5 border border-white/10 p-8 rounded-[40px] min-w-[300px] backdrop-blur-md">
-              <p className="text-[10px] font-black uppercase text-gray-500 tracking-widest mb-2">Estimated Investment</p>
-              <h3 className="text-4xl font-black text-mint italic mb-6">
-                {currency === 'USD' ? `$${totalPrice}` : `LKR ${(totalPrice * 300).toLocaleString()}`}
+            <div className="bg-white/5 border border-white/10 p-8 rounded-[40px] min-w-[320px]">
+              <p className="text-[10px] uppercase font-black text-gray-500 tracking-widest mb-2">
+                Estimated Cost
+              </p>
+              <h3 className="text-4xl font-black italic text-mint mb-6">
+                {currency === 'USD'
+                  ? `$${totalPrice}`
+                  : `LKR ${(totalPrice * 300).toLocaleString()}`}
               </h3>
-              <button 
+
+              <button
                 onClick={handleFinalizePlan}
                 disabled={isProcessing}
-                className="w-full bg-mint text-forest py-4 rounded-2xl font-black uppercase tracking-widest text-[10px] hover:bg-white transition-all disabled:opacity-50"
+                className="w-full bg-mint text-forest py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-white transition disabled:opacity-50"
               >
-                {isProcessing ? "Optimizing Route..." : "Finalize & Request Quote"}
+                {isProcessing ? "Processing..." : "Finalize & Send"}
               </button>
+
+              {/* EXTRA UI BUTTONS */}
+              <div className="grid grid-cols-2 gap-3 mt-4">
+                <button className="border border-white/10 py-3 rounded-xl text-[9px] uppercase font-black opacity-40 cursor-not-allowed">
+                  Export PDF
+                </button>
+                <button className="border border-white/10 py-3 rounded-xl text-[9px] uppercase font-black opacity-40 cursor-not-allowed">
+                  Share Plan
+                </button>
+              </div>
             </div>
           )}
         </div>
 
+        {/* TRIP NOTES (UI ONLY) */}
+        <div className="mb-16 bg-white/5 border border-white/10 p-8 rounded-[40px]">
+          <p className="text-[10px] font-black uppercase tracking-widest text-mint mb-4">
+            Trip Notes
+          </p>
+          <p className="text-xs text-gray-400 italic leading-relaxed">
+            This itinerary is auto-organized based on your selected experiences.
+            You can reorder activities in future updates. Vendors will optimize
+            timing and logistics after submission.
+          </p>
+        </div>
+
+        {/* ITINERARY ITEMS */}
         {savedItems.length === 0 ? (
-          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="bg-white/5 border border-white/10 p-20 rounded-[60px] text-center backdrop-blur-xl">
-            <div className="text-6xl mb-8 opacity-20 text-mint italic font-black uppercase tracking-tighter">Empty Canvas</div>
-            <p className="text-gray-500 text-xs italic mb-10 max-w-sm mx-auto leading-loose">
-              Your Sri Lankan journey hasn't started yet. Add premium stays and heritage experiences to begin.
+          <div className="bg-white/5 border border-white/10 p-20 rounded-[60px] text-center">
+            <h3 className="text-5xl font-black italic uppercase text-mint opacity-30 mb-6">
+              Empty Plan
+            </h3>
+            <p className="text-gray-500 text-xs mb-10">
+              Add experiences to start building your itinerary.
             </p>
-            <button 
+            <button
               onClick={() => navigate('/destinations')}
-              className="bg-white text-forest px-12 py-5 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-mint transition"
+              className="bg-white text-forest px-12 py-5 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-mint transition"
             >
               Browse Experiences
             </button>
-          </motion.div>
+          </div>
         ) : (
-          <div className="grid gap-6">
-            <AnimatePresence mode='popLayout'>
+          <div className="space-y-6">
+            <AnimatePresence>
               {savedItems.map((item, index) => (
-                <motion.div 
+                <motion.div
                   key={item.id}
-                  layout
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, scale: 0.9 }}
-                  transition={{ delay: index * 0.1 }}
-                  className="bg-white/5 border border-white/10 p-6 rounded-[35px] flex flex-col md:flex-row items-center gap-8 group hover:border-mint/30 transition-all hover:bg-white/[0.07]"
+                  exit={{ opacity: 0 }}
+                  className="bg-white/5 border border-white/10 p-6 rounded-[35px] flex flex-col md:flex-row gap-8 items-center"
                 >
-                  <div className="relative">
-                    <img src={item.img} className="w-32 h-32 md:w-40 md:h-40 object-cover rounded-[25px] shadow-2xl transition group-hover:scale-105" alt="" />
-                    <span className="absolute -top-3 -left-3 bg-mint text-forest w-8 h-8 rounded-full flex items-center justify-center font-black text-xs italic">
-                      {index + 1}
-                    </span>
+                  {/* DAY LABEL */}
+                  <div className="text-mint text-[10px] font-black uppercase tracking-widest">
+                    Day {index + 1}
                   </div>
+
+                  <img
+                    src={item.img}
+                    className="w-32 h-32 object-cover rounded-[25px]"
+                    alt=""
+                  />
 
                   <div className="flex-1 text-center md:text-left">
-                    <h4 className="text-3xl font-black italic uppercase tracking-tighter mb-2">{item.name}</h4>
-                    <div className="flex items-center justify-center md:justify-start gap-4 mb-4">
-                      <span className="text-mint text-[10px] font-black uppercase tracking-widest italic">{item.location}</span>
-                      <span className="w-1 h-1 bg-white/20 rounded-full"></span>
-                      <span className="text-white/40 text-[10px] font-black uppercase tracking-widest">
-                        {currency === 'USD' ? `$${item.price}` : `LKR ${(item.price * 300).toLocaleString()}`}
-                      </span>
-                    </div>
+                    <h4 className="text-3xl font-black italic uppercase tracking-tighter">
+                      {item.name}
+                    </h4>
+                    <p className="text-[10px] uppercase font-black text-white/40 tracking-widest mt-2">
+                      {item.location}
+                    </p>
                   </div>
 
-                  <div className="flex gap-3">
-                    <button 
+                  <div className="flex flex-col items-end gap-3">
+                    <span className="text-[10px] font-black uppercase tracking-widest text-mint">
+                      {currency === 'USD'
+                        ? `$${item.price}`
+                        : `LKR ${(item.price * 300).toLocaleString()}`}
+                    </span>
+                    <button
                       onClick={() => removeItem(item.id)}
-                      className="bg-red-500/10 text-red-500 px-8 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-red-500 hover:text-white transition duration-300"
+                      className="bg-red-500/10 text-red-500 px-6 py-3 rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-red-500 hover:text-white transition"
                     >
                       Remove
                     </button>
@@ -172,11 +211,9 @@ export default function Itinerary() {
         )}
       </div>
 
-      {/* FOOTER DETAIL */}
-      <div className="max-w-6xl mx-auto mt-20 pt-10 border-t border-white/5 text-center">
-        <p className="text-[9px] font-black text-white/20 uppercase tracking-[0.5em]">
-          All plans are subject to local availability & seasonal pricing adjustments.
-        </p>
+      {/* FOOTER NOTE */}
+      <div className="text-center mt-20 text-[9px] uppercase font-black tracking-[0.4em] text-white/20">
+        Subject to availability & seasonal pricing
       </div>
     </div>
   );
