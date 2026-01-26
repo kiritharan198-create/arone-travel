@@ -14,11 +14,15 @@ export default function Navbar() {
       setUser(currentUser);
 
       if (currentUser) {
-        const snap = await getDoc(doc(db, 'users', currentUser.uid));
-        if (snap.exists()) {
-          const r = snap.data().role?.toLowerCase();
-          setRole(r);
-          console.log('Role:', r); // for debugging
+        try {
+          const snap = await getDoc(doc(db, 'users', currentUser.uid));
+          if (snap.exists()) {
+            // ✅ We force lowercase to make the check "bulletproof"
+            const r = snap.data().role?.toLowerCase().trim();
+            setRole(r);
+          }
+        } catch (err) {
+          console.error("Error fetching role:", err);
         }
       } else {
         setRole(null);
@@ -36,26 +40,37 @@ export default function Navbar() {
   return (
     <nav className="flex justify-between items-center px-10 py-6 bg-white sticky top-0 z-50 shadow-sm">
       
-      <div className="text-2xl font-bold text-travel-dark tracking-tighter">
+      <div className="text-2xl font-bold text-travel-dark tracking-tighter cursor-pointer" onClick={() => navigate('/')}>
         ARONE
       </div>
 
-      <div className="hidden md:flex gap-8 text-sm font-semibold text-gray-600">
+      <div className="hidden md:flex gap-8 text-sm font-semibold text-gray-600 items-center">
         <Link to="/" className="hover:text-travel-dark">Home</Link>
         <Link to="/destinations" className="hover:text-travel-dark">Destinations</Link>
-        <Link to="/packages" className="hover:text-travel-dark">Packages</Link>
-
-        {role === 'vendor' && <Link to="/agents" className="hover:text-travel-dark">Vendor Hub</Link>}
-        {role === 'traveler' && <Link to="/traveler" className="hover:text-travel-dark">Traveler Hub</Link>}
+        
+        {/* ✅ The Logic Gate */}
+        {role === 'vendor' && (
+          <Link to="/agents" className="bg-mint/10 text-mint px-4 py-1.5 rounded-lg hover:bg-mint hover:text-white transition-all">
+            Vendor Hub
+          </Link>
+        )}
+        
+        {role === 'traveler' && (
+          <Link to="/traveler" className="bg-blue-50 text-blue-600 px-4 py-1.5 rounded-lg hover:bg-blue-600 hover:text-white transition-all">
+            Traveler Hub
+          </Link>
+        )}
       </div>
 
       {user ? (
-        <button
-          onClick={handleLogout}
-          className="bg-red-500 text-white px-6 py-2 rounded-full text-sm font-bold hover:bg-opacity-90 transition"
-        >
-          Log Out
-        </button>
+        <div className="flex items-center gap-4">
+          <button
+            onClick={handleLogout}
+            className="bg-red-500 text-white px-6 py-2 rounded-full text-sm font-bold hover:bg-opacity-90 transition"
+          >
+            Log Out
+          </button>
+        </div>
       ) : (
         <Link to="/login" className="bg-travel-dark text-white px-6 py-2 rounded-full text-sm font-bold hover:bg-opacity-90 transition">
           Log In

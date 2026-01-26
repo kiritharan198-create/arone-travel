@@ -9,7 +9,7 @@ export default function Login() {
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [nickname, setNickname] = useState(''); // ✅ NEW
+  const [nickname, setNickname] = useState(''); 
   const [role, setRole] = useState('traveler');
   const navigate = useNavigate();
 
@@ -23,6 +23,8 @@ export default function Login() {
         if (userDoc.exists()) {
           const userData = userDoc.data();
           if (userData.role === 'vendor') navigate('/agents');
+          // ✅ UPDATED: Send travelers to their hub instead of '/'
+          else if (userData.role === 'traveler') navigate('/traveler'); 
           else navigate('/');
         }
       } else {
@@ -44,7 +46,8 @@ export default function Login() {
 
         alert("Account Created Successfully!");
         if (role === 'vendor') navigate('/agents');
-        else navigate('/');
+        // ✅ UPDATED: Send travelers to their hub instead of '/'
+        else navigate('/traveler'); 
       }
     } catch (error) {
       alert(error.message);

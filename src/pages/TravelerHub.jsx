@@ -49,9 +49,10 @@ export default function TravelerHub() {
   };
 
   return (
-    <div className="min-h-screen bg-[#0B1812] text-white p-8 md:p-16">
+    <div className="min-h-screen bg-[#0B1812] text-white p-8 md:p-16 selection:bg-mint selection:text-black">
       <div className="max-w-6xl mx-auto">
 
+        {/* TOP NAV / HEADER */}
         <div className="flex justify-between items-end mb-16 border-b border-white/5 pb-8">
           <div>
             <span className="text-mint text-[10px] font-black uppercase tracking-[0.4em]">
@@ -67,16 +68,20 @@ export default function TravelerHub() {
 
           <button
             onClick={() => navigate('/')}
-            className="text-[10px] font-black uppercase border border-white/10 px-6 py-3 rounded-full hover:bg-white hover:text-forest transition"
+            className="text-[10px] font-black uppercase border border-white/10 px-8 py-3 rounded-full hover:bg-white hover:text-forest transition shadow-[0_0_20px_rgba(255,255,255,0.05)]"
           >
             Explore
           </button>
         </div>
 
-        <section className="mb-20 bg-white/5 border border-white/10 p-8 rounded-[40px]">
-          <h2 className="text-xl font-black uppercase mb-6 text-mint">
-            Account Settings
-          </h2>
+        {/* ACCOUNT SETTINGS SECTION */}
+        <section className="mb-20 bg-white/[0.02] border border-white/5 p-8 rounded-[40px] flex flex-col md:flex-row md:items-center justify-between gap-6">
+          <div>
+            <h2 className="text-xl font-black italic uppercase text-mint">
+              Account Settings
+            </h2>
+            <p className="text-[9px] text-gray-500 uppercase font-bold tracking-widest mt-1">Manage your identity on Arone</p>
+          </div>
 
           {!editName ? (
             <button
@@ -90,11 +95,12 @@ export default function TravelerHub() {
               <input
                 value={newName}
                 onChange={(e) => setNewName(e.target.value)}
-                className="bg-black/40 p-3 rounded-xl border border-white/10 text-xs"
+                className="bg-black border border-white/10 p-3 rounded-xl text-xs outline-none focus:border-mint transition-all"
+                placeholder="New Nickname"
               />
               <button
                 onClick={saveNickname}
-                className="bg-mint text-forest px-6 rounded-xl font-black text-[10px] uppercase"
+                className="bg-mint text-forest px-6 rounded-xl font-black text-[10px] uppercase hover:scale-95 transition-transform"
               >
                 Save
               </button>
@@ -102,35 +108,77 @@ export default function TravelerHub() {
           )}
         </section>
 
+        {/* TRIPS SECTION - UPDATED TO VENDOR DASHBOARD STYLE */}
         <section>
-          <h2 className="text-2xl font-black italic uppercase mb-8">
-            My Trips
-          </h2>
+          <div className="flex justify-between items-center mb-10">
+            <h2 className="text-3xl font-black italic uppercase flex items-center gap-4">
+              My Trips <span className="h-[1px] w-24 bg-white/10"></span>
+            </h2>
+          </div>
 
-          <div className="grid md:grid-cols-2 gap-6">
+          <div className="grid md:grid-cols-2 gap-8">
             {bookings.length > 0 ? (
               bookings.map(b => (
-                <div key={b.id} className="bg-white/[0.03] border border-white/5 p-6 rounded-[30px]">
-                  <h3 className="text-xl font-black italic uppercase">{b.packageName}</h3>
-                  <p className="text-[9px] text-gray-500 font-bold uppercase tracking-widest mt-1">
-                    Status: {b.status}
-                  </p>
+                <div key={b.id} className="group bg-white/[0.03] border border-white/5 p-8 rounded-[40px] hover:border-mint/30 transition-all relative overflow-hidden">
+                  
+                  {/* Status Tag */}
+                  <div className="flex justify-between items-start mb-6">
+                    <span className={`px-4 py-1.5 rounded-full text-[8px] font-black uppercase tracking-widest ${
+                      b.status === 'Confirmed' ? 'bg-mint text-forest' : 'bg-white/10 text-gray-400'
+                    }`}>
+                      {b.status || 'Processing'}
+                    </span>
+                    <p className="text-[8px] font-bold text-gray-700 uppercase tracking-widest">
+                      Ref: {b.id.slice(0, 8)}
+                    </p>
+                  </div>
+
+                  {/* Package Name */}
+                  <h3 className="text-2xl font-black italic uppercase text-white group-hover:text-mint transition duration-500">
+                    {b.packageName}
+                  </h3>
+                  
+                  {/* Footer of Card */}
+                  <div className="mt-8 pt-8 border-t border-white/5 flex justify-between items-end">
+                    <div>
+                      <p className="text-[8px] font-black text-gray-500 uppercase tracking-widest mb-1">Total Investment</p>
+                      <p className="text-2xl font-black italic text-white">
+                        ${b.totalPrice || b.packagePrice || '0'}
+                      </p>
+                    </div>
+                    
+                    <button className="bg-white/5 hover:bg-white hover:text-forest px-6 py-2 rounded-xl text-[9px] font-black uppercase transition-all">
+                      View Itinerary
+                    </button>
+                  </div>
+
+                  {/* Aesthetic background glow on hover */}
+                  <div className="absolute -bottom-10 -right-10 w-32 h-32 bg-mint/5 blur-[50px] rounded-full group-hover:bg-mint/10 transition-all"></div>
                 </div>
               ))
             ) : (
-              <div className="text-gray-600 text-[10px] font-black uppercase tracking-[0.3em]">
-                No bookings yet
+              <div className="col-span-full py-24 border border-dashed border-white/10 rounded-[40px] text-center">
+                <p className="text-gray-600 text-[10px] font-black uppercase tracking-[0.4em]">
+                  No explorations booked yet
+                </p>
+                <button 
+                  onClick={() => navigate('/')}
+                  className="mt-6 text-mint text-[9px] font-black uppercase tracking-widest hover:underline"
+                >
+                  Start your journey →
+                </button>
               </div>
             )}
           </div>
         </section>
 
-        <div className="mt-24 flex gap-4">
+        {/* LOGOUT AREA */}
+        <div className="mt-32 border-t border-white/5 pt-12">
           <button
             onClick={() => auth.signOut()}
-            className="text-[9px] font-black uppercase px-6 py-3 bg-red-500/10 text-red-500 rounded-xl border border-red-500/20"
+            className="text-[9px] font-black uppercase px-8 py-4 bg-red-500/5 text-red-500/40 hover:bg-red-500 hover:text-white rounded-2xl border border-red-500/10 transition-all shadow-lg"
           >
-            Sign Out
+            Secure Sign Out
           </button>
         </div>
 
